@@ -9,3 +9,8 @@ def init_mail(app):
     Connects Flask-Mail to the Flask app
     """
     mail.init_app(app)
+
+
+def send_email(to_email, subject, body):
+    """
+    
