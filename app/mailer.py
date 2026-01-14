@@ -37,3 +37,4 @@ def send_email(to_email, subject, body):
         f"If this was not you, please contact support immediately.\n\n"
         f"- Your Bank, thank you for banking with us."
     )
+    send_email(to_email, subject, body)
