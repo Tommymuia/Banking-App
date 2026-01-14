@@ -25,13 +25,11 @@ def send_email(to_email, subject, body):
     mail.send(msg)    
 
     def send_transaction_alert(to_email, amount, transaction_type):
-    """
-    Sends a banking transaction alert email
-    """
-    subject = "Transaction Alert"
-
-
-    body = (
+        """
+        Sends a banking transaction alert email
+        """
+        subject = "Transaction Alert"
+        body = (
         f"Dear Customer,\n\n"
         f"A {transaction_type} of ${amount} has occurred on your account.\n\n"
         f"If this was not you, please contact support immediately.\n\n"
