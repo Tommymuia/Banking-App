@@ -20,3 +20,6 @@ def send_email(to_email, subject, body):
         recipients=[to_email],
         body=body,
         sender=current_app.config["MAIL_DEFAULT_SENDER"]
+
+    )
+    mail.send(msg)    
