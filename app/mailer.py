@@ -13,4 +13,10 @@ def init_mail(app):
 
 def send_email(to_email, subject, body):
     """
-    
+    Sends a basic text email
+    """
+    msg = Message(
+        subject=subject,
+        recipients=[to_email],
+        body=body,
+        sender=current_app.config["MAIL_DEFAULT_SENDER"]
