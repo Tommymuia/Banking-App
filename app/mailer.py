@@ -23,3 +23,9 @@ def send_email(to_email, subject, body):
 
     )
     mail.send(msg)    
+
+    def send_transaction_alert(to_email, amount, transaction_type):
+    """
+    Sends a banking transaction alert email
+    """
+    subject = "Transaction Alert"
