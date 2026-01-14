@@ -1,3 +1,20 @@
+mailer-feature
+from typing import Union
+
+from fastapi import FastAPI
+
+app = FastAPI()
+
+
+@app.get("/")
+async def read_root():
+    return {"Hello": "World"}
+
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int, q: Union[str, None] = None):
+    return {"item_id": item_id, "q": q}
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import engine, BASE, get_db
@@ -76,3 +93,4 @@ def read_transactions(db: Session = Depends(get_db), current_user: User = Depend
     Only shows transactions belonging to the logged-in user.
     """
     return crud.get_user_transactions(db, user_id=current_user.id)
+main
