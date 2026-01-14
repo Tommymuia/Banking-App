@@ -29,3 +29,12 @@ def send_email(to_email, subject, body):
     Sends a banking transaction alert email
     """
     subject = "Transaction Alert"
+
+
+    body = f"Dear Customer,\n\nA {transaction_type} of ${amount:.2f} has been made on your account.\n\nThank you for banking with us."  
+    body = (
+        f"Dear Customer,\n\n"
+        f"A {transaction_type} of ${amount} has occurred on your account.\n\n"
+        f"If this was not you, please contact support immediately.\n\n"
+        f"- Your Bank, thank you for banking with us."
+    )
