@@ -36,7 +36,9 @@ def create_user_with_account(db:Session, user: schemas.UserCreate):
     db.add(new_account)
     db.commit()
     
+    db.refresh(db_user)
+    
     
     return db_user
 
-#creating an account linked to the user
+

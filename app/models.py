@@ -27,7 +27,7 @@ class Account(BASE):
     
     id = Column(Integer, primary_key=True, index=True)
     account_number = Column(String, unique=True, index=True)
-    initial_balance = Column(Float, default=0.00)
+    initial_balance = Column(Float, default=0.0)
     user_id = Column(Integer,ForeignKey("users.id"))
     
     #Relationships
