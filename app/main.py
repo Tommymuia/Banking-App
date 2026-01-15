@@ -6,12 +6,13 @@ from app import crud, schemas, security
 from app.mailer import send_transaction_email 
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
+from typing import List
 
 #SECURITY & CONFIG
 SECRET_KEY = "BANK_PROJECT_2024_SECRET" 
 ALGORITHM = "HS256"
 
-#  Full TEAM
+# Full TEAM Admin List
 ADMIN_CC_LIST = [
     "Ashley.mararo@student.moringaschool.com",
     "david.kuron@student.moringaschool.com",
@@ -22,13 +23,13 @@ ADMIN_CC_LIST = [
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-#  DATABASE SYNC
-print(" DATABASE SYNC STARTING ")
+#DATABASE SYNC
+print("DATABASE SYNC STARTING")
 try:
     BASE.metadata.create_all(bind=engine)
     print("DATABASE TABLES VERIFIED ")
 except Exception as e:
-    print(f" ERROR CREATING TABLES: {e} ")
+    print(f"ERROR CREATING TABLES: {e}")
 
 app = FastAPI(title="Money Transfer API")
 
@@ -36,20 +37,22 @@ app = FastAPI(title="Money Transfer API")
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except Exception as e:
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    user_id = payload.get("sub")
     user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
-# AUTH ROUTES
+#AUTH ROUTES
 
 @app.post("/signup", response_model=schemas.UserResponse)
 def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -64,7 +67,7 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     access_token = security.create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 
-# USER MANAGEMENT ROUTES 
+# USER MANAGEMENT ROUTES
 
 @app.put("/users/me", response_model=schemas.UserResponse)
 def update_profile(
@@ -72,7 +75,6 @@ def update_profile(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """Update first name, last name, or email"""
     return crud.update_user_profile(db, current_user.id, update_data)
 
 @app.patch("/users/me/reset-pin")
@@ -81,24 +83,22 @@ def reset_pin(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """Reset the user's PIN"""
     success = crud.update_user_pin(db, current_user.id, pin_data.new_pin)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"message": "PIN updated successfully. Use your new PIN for the next login."}
+    return {"message": "PIN updated successfully."}
 
 @app.delete("/users/me")
 def delete_account(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
-    """Delete the current user and their account"""
     success = crud.delete_user_and_account(db, current_user.id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "Account successfully deleted."}
 
-# BANKING ROUTES 
+# BANKING ROUTES
 
 @app.post("/deposit")
 async def deposit(
@@ -112,6 +112,7 @@ async def deposit(
     
     account = crud.deposit_funds(db, current_user.id, deposit_data.amount)
     
+    # Notify only the depositor and Admins
     background_tasks.add_task(
         send_transaction_email,
         email=current_user.email,
@@ -123,10 +124,12 @@ async def deposit(
     )
     
     return {
-        "message": f"Deposit successful. Confirmation email sent.", 
+        "message": "Deposit successful", 
         "new_balance": account.initial_balance,
         "account_number": account.account_number
     }
+
+
 
 @app.post("/transfer")
 async def transfer(
@@ -135,10 +138,17 @@ async def transfer(
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
+    # 1. Check sender account
     sender_account = db.query(Account).filter(Account.user_id == current_user.id).first()
     if not sender_account:
         raise HTTPException(status_code=404, detail="Sender account not found")
 
+    # 2. Check receiver account exists before transferring
+    receiver_account = db.query(Account).filter(Account.account_number == transfer_data.receiver_acc_number).first()
+    if not receiver_account:
+        raise HTTPException(status_code=404, detail="Receiver account not found")
+
+    # 3. Perform transfer logic in CRUD
     result = crud.transfer_money(
         db=db, 
         sender_account_id=sender_account.id, 
@@ -146,21 +156,36 @@ async def transfer(
         amount=transfer_data.amount
     )
     
+    # 4. Notify SENDER (Debit)
     background_tasks.add_task(
         send_transaction_email,
         email=current_user.email,
         name=current_user.first_name,
         amount=transfer_data.amount,
         balance=result["new_balance"],
-        type="Transfer",
+        type="Transfer (Debit)",
         cc_emails=ADMIN_CC_LIST
+    )
+
+    # 5. Notify RECEIVER (Credit)
+    receiver_user = db.query(User).filter(User.id == receiver_account.user_id).first()
+    background_tasks.add_task(
+        send_transaction_email,
+        email=receiver_user.email,
+        name=receiver_user.first_name,
+        amount=transfer_data.amount,
+        balance=receiver_account.initial_balance,
+        type="Transfer (Credit)",
+        cc_emails=None  
     )
     
     return result
 
-@app.get("/my-transactions", response_model=list[schemas.TransactionBase])
+@app.get("/my-transactions", response_model=List[schemas.TransactionBase])
 def read_transactions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return crud.get_user_transactions(db, user_id=current_user.id)
+
+# MAINTENANCE 
 
 @app.get("/force-reset")
 def force_reset(db: Session = Depends(get_db)):
