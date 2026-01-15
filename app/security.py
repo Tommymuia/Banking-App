@@ -5,7 +5,7 @@ from jose import JWTError, jwt
 # Password hashing configuration
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# SECURITY CONSTANTS - MUST MATCH main.py EXACTLY
+# SECURITY CONSTANTS
 SECRET_KEY = "BANK_PROJECT_2024_SECRET" 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30

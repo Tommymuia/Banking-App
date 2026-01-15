@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
 
-# --- ACCOUNT SCHEMAS ---
+# ACCOUNT SCHEMAS
 class AccountResponse(BaseModel):
     account_number: str
     initial_balance: float
@@ -10,7 +10,7 @@ class AccountResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- USER SCHEMAS ---
+#USER SCHEMAS
 class UserCreate(BaseModel):
     first_name: str
     last_name: str
@@ -20,6 +20,7 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     first_name: str
+    last_name: str
     email: str
     account: Optional[AccountResponse] = None 
     
@@ -30,13 +31,22 @@ class UserLogin(BaseModel):
     email: EmailStr
     pin: str
 
-# --- AUTH SCHEMAS ---
+#Schema for updating user profile
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+# Schema for resetting PIN
+class PinReset(BaseModel):
+    new_pin: str
+
+# AUTH SCHEMAS 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-# --- BANKING ACTION SCHEMAS ---
-# This fixes the "Field required" error you got!
+# BANKING ACTION SCHEMAS 
 class TransferCreate(BaseModel):
     receiver_acc_number: str
     amount: float
@@ -44,7 +54,7 @@ class TransferCreate(BaseModel):
 class DepositCreate(BaseModel):
     amount: float
 
-# --- TRANSACTION SCHEMAS ---
+#TRANSACTION SCHEMAS
 class TransactionBase(BaseModel):
     id: int
     reference_code: str
