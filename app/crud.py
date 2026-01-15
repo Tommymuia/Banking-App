@@ -44,11 +44,29 @@ def create_user_with_account(db:Session, user: schemas.UserCreate):
 
 #DEPOSITING MONEY
 
-def deposit_funds(db: Session, account_id: int, amount: float):
-    #Finding the account
-    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+def deposit_funds(db: Session, user_id: int, amount: float):
+    # 1. Find the account
+    account = db.query(models.Account).filter(models.Account.user_id == user_id).first()
     if not account:
-        return None
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # 2. Update balance
+    account.initial_balance += amount 
+
+    # 3. Create History Record (UUID is imported at top)
+    new_transaction = models.Transaction(
+        reference_code=f"DEP-{uuid.uuid4().hex[:8].upper()}",
+        amount=amount,
+        transaction_type="DEPOSIT",
+        receiver_id=account.id,
+        sender_id=None 
+    )
+
+    db.add(new_transaction)
+    db.commit()
+    db.refresh(account)
+    
+    return account 
 
     #Update balance
     account.initial_balance += amount
