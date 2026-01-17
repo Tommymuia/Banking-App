@@ -4,18 +4,20 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-fastapi = "==0.109.0"
-sqlalchemy = "==2.0.25"
-psycopg2-binary = "==2.9.9"
-alembic = "==1.13.1"
-python-dotenv = "==1.0.0"
-emails = "==0.6"
-uvicorn = {extras = ["standard"], version = "==0.27.0"}
-passlib = {extras = ["bcrypt"], version = "==1.7.4"}
-bcrypt = "==4.0.1"
-python-jose = "*"
+fastapi = "*"
+# Using * allows Pipenv to find the best match for Python 3.13
+sqlalchemy = ">=2.0.0"
+psycopg2-binary = "*"
+alembic = "*"
+python-dotenv = "*"
+emails = "*"
+uvicorn = {extras = ["standard"], version = "*"}
+gunicorn = "*"
+passlib = {extras = ["bcrypt"], version = ">=1.7.4"}
+bcrypt = ">=4.0.1"
+python-jose = {extras = ["cryptography"], version = "*"}
 
 [dev-packages]
 
 [requires]
-python_version = "3.8"
+python_version = "3.13"
