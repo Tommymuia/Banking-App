@@ -7,6 +7,20 @@ from app.mailer import send_transaction_email
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from typing import List
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+
+app = FastAPI()
+
+#to allow local frontend and backend connection
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    )
 
 #SECURITY & CONFIG
 SECRET_KEY = "BANK_PROJECT_2024_SECRET" 
