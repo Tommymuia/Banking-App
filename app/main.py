@@ -1,7 +1,7 @@
 import os
 import sys
 from typing import List
-from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ from app.mailer import send_transaction_email
 # Initialize App
 app = FastAPI(title="Money Transfer API")
 
+# CORS Configuration - Allows your React app to talk to this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,11 +40,12 @@ ADMIN_CC_LIST = [
     "thomas.mbula@student.moringaschool.com"
 ]
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 # Database Sync
 try:
     BASE.metadata.create_all(bind=engine)
+    print("DATABASE TABLES VERIFIED")
 except Exception as e:
     print(f"DB Error: {e}")
 
@@ -65,16 +67,16 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
-# Routes
-@app.get("/")
-def health():
-    return {"status": "online"}
+# --- API ROUTER SETUP ---
+# This prefix handles the "/api" part of your React calls automatically
+api_router = APIRouter(prefix="/api")
 
-@app.post("/signup", response_model=schemas.UserResponse)
+# Auth Routes
+@api_router.post("/auth/signup", response_model=schemas.UserResponse)
 def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return crud.create_user_with_account(db=db, user=user)
 
-@app.post("/login")
+@api_router.post("/auth/login")
 def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_credentials.email).first()
     if not user or not security.verify_pin(user_credentials.pin, user.hashed_pin):
@@ -82,23 +84,33 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     access_token = security.create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.put("/users/me", response_model=schemas.UserResponse)
+# User Routes
+@api_router.get("/users/me", response_model=schemas.UserResponse)
+def get_profile(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@api_router.put("/users/me", response_model=schemas.UserResponse)
 def update_profile(update_data: schemas.UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return crud.update_user_profile(db, current_user.id, update_data)
 
-@app.patch("/users/me/reset-pin")
+@api_router.patch("/users/me/reset-pin")
 def reset_pin(pin_data: schemas.PinReset, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if crud.update_user_pin(db, current_user.id, pin_data.new_pin):
         return {"message": "PIN updated"}
     raise HTTPException(status_code=404)
 
-@app.delete("/users/me")
+@api_router.delete("/users/me")
 def delete_account(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if crud.delete_user_and_account(db, current_user.id):
         return {"message": "Deleted"}
     raise HTTPException(status_code=404)
 
-@app.post("/deposit")
+# Transaction Routes
+@api_router.get("/transactions", response_model=List[schemas.TransactionBase])
+def read_transactions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return crud.get_user_transactions(db, user_id=current_user.id)
+
+@api_router.post("/transactions/deposit")
 async def deposit(deposit_data: schemas.DepositCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if deposit_data.amount <= 0:
         raise HTTPException(status_code=400, detail="Must be positive")
@@ -106,7 +118,7 @@ async def deposit(deposit_data: schemas.DepositCreate, background_tasks: Backgro
     background_tasks.add_task(send_transaction_email, email=current_user.email, name=current_user.first_name, amount=deposit_data.amount, balance=account.initial_balance, type="Deposit", cc_emails=ADMIN_CC_LIST)
     return {"message": "Success", "new_balance": account.initial_balance}
 
-@app.post("/transfer")
+@api_router.post("/transactions/transfer")
 async def transfer(transfer_data: schemas.TransferCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     sender_account = db.query(Account).filter(Account.user_id == current_user.id).first()
     receiver_account = db.query(Account).filter(Account.account_number == transfer_data.receiver_acc_number).first()
@@ -122,9 +134,13 @@ async def transfer(transfer_data: schemas.TransferCreate, background_tasks: Back
     
     return result
 
-@app.get("/my-transactions", response_model=List[schemas.TransactionBase])
-def read_transactions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return crud.get_user_transactions(db, user_id=current_user.id)
+# Register the router
+app.include_router(api_router)
+
+# Utility / Root Routes
+@app.get("/")
+def health():
+    return {"status": "online"}
 
 @app.get("/force-reset")
 def force_reset(db: Session = Depends(get_db)):
