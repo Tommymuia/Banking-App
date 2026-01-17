@@ -7,7 +7,7 @@ name = "pypi"
 fastapi = "*"
 # Using * allows Pipenv to find the best match for Python 3.13
 sqlalchemy = ">=2.0.0"
-psycopg2-binary = "*"
+psycopg2-binary>=2.9.10
 alembic = "*"
 python-dotenv = "*"
 emails = "*"
@@ -20,4 +20,4 @@ python-jose = {extras = ["cryptography"], version = "*"}
 [dev-packages]
 
 [requires]
-python_version = "3.13"
+python_version = "3.12.8"
